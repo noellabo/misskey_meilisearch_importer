@@ -74,7 +74,10 @@ dataSource
 	});
 
 const importNotes = async (connection, id) => {
-	const query = connection.createQueryBuilder()
+	let lastId = id;
+
+	console.log('Preparing for import...');
+	const { total } = await connection.createQueryBuilder()
 		.from('note')
 		.where("(text IS NOT NULL OR cw IS NOT NULL) AND visibility IN ('home', 'public')")
 		.andWhere(() => {
@@ -84,12 +87,7 @@ const importNotes = async (connection, id) => {
 				default:       return '"userHost" IN (:...hosts)';
 			}
 		})
-		.setParameter('hosts', meilisearchIndexScope);
-
-	let lastId = id;
-
-	console.log('Preparing for import...');
-	const { total } = await query
+		.setParameter('hosts', meilisearchIndexScope)
 		.andWhere(lastId ? 'id < :id' : 'true')
 		.setParameter('id', lastId)
 		.select("count(*)", 'total')
@@ -98,7 +96,17 @@ const importNotes = async (connection, id) => {
 	bar.start(total, 0, { lastId: lastId ?? '(all)' });
 
 	while (true) {
-		notes = await query
+		notes = await connection.createQueryBuilder()
+			.from('note')
+			.where("(text IS NOT NULL OR cw IS NOT NULL) AND visibility IN ('home', 'public')")
+			.andWhere(() => {
+				switch (meilisearchIndexScope) {
+					case 'global': return 'true';
+					case 'local':  return '"userHost" IS NULL';
+					default:       return '"userHost" IN (:...hosts)';
+				}
+			})
+			.setParameter('hosts', meilisearchIndexScope)
 			.orderBy('id', 'DESC')
 			.andWhere(lastId ? 'id < :id' : 'true')
 			.setParameter('id', lastId)
