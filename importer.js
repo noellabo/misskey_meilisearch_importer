@@ -118,6 +118,11 @@ const importNotes = async (connection, id) => {
 			break;
 		}
 
+		// なんか createdAt が文字列なことがあるので、parseして数字に直してあげる
+		for (const note of notes) {
+			note.createdAt = parseInt(note.createdAt)
+		}
+
 		await meilisearchNoteIndex.addDocuments(notes, { primaryKey: 'id' });
 
 		lastId = notes[notes.length - 1].id;
