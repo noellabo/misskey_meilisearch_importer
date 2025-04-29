@@ -110,12 +110,17 @@ const importNotes = async (connection, id) => {
 			.orderBy('id', 'DESC')
 			.andWhere(lastId ? 'id < :id' : 'true')
 			.setParameter('id', lastId)
-			.select(['id', 'base36_decode(substring(id, 1, 8))+946684800000 AS "createdAt"', '"userHost"', '"channelId"', 'cw', 'text', 'tags'])
+			.select(['id', 'base36_decode(substring(id, 1, 8))+946684800000 AS "createdAt"', '"userHost"', '"channelId"', 'cw', 'text', 'tags', '"userId"'])
 			.take(options.batchSize)
 			.getRawMany();
 
 		if (notes.length == 0) {
 			break;
+		}
+
+		// なんか createdAt が文字列なことがあるので、parseして数字に直してあげる
+		for (const note of notes) {
+			note.createdAt = parseInt(note.createdAt)
 		}
 
 		await meilisearchNoteIndex.addDocuments(notes, { primaryKey: 'id' });
